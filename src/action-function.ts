@@ -11,37 +11,30 @@ async function parseBody(
   { type: "success"; json: unknown } | { type: "error"; message: string }
 > {
   const { body } = request;
-  const isReadable = body instanceof Readable;
-  if (!isReadable) {
-    return { type: "error", message: "Request body is not readable" };
-  }
+  
 
   const contentType = request.headers.get("Content-Type") || "";
   const isJSON = /^application\/(graphql\+)?json/.test(contentType);
   if (!isJSON) {
     return { type: "error", message: "Request body does not contain JSON" };
   }
-
-  return new Promise((resolve) => {
-    let text = "";
-    body.on("data", (chunk) => {
-      text += chunk;
-    });
-    body.on("error", (error) => {
-      resolve({ type: "error", message: error.message });
-    });
-    body.on("end", () => {
-      try {
-        const json = JSON.parse(text);
-        resolve({ type: "success", json });
-      } catch {
-        resolve({
-          type: "error",
-          message: "Request body contains invalid JSON",
-        });
-      }
-    });
-  });
+  const isReadable = body instanceof Readable || body instanceof ReadableStream;
+  if (!isReadable) {
+    return { type: "error", message: "Request body is not readable" };
+  }
+  
+    let text = await request.text()
+    
+    try {
+      const json = JSON.parse(text);
+      return ({ type: "success", json });
+    } catch {
+      return ({
+        type: "error",
+        message: "Request body contains invalid JSON",
+      });
+    }
+  
 }
 
 export function getActionFunction({
